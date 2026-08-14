@@ -60,5 +60,6 @@ export async function girisYap(govde: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(govde),
   });
+  console.log('Giris cevabi: ' + res.status + ' ' + res.statusText);
   return cevabiCoz(res);
 }
