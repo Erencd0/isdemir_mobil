@@ -20,6 +20,13 @@ public class GlobalHataYakalayici {
                 .body(new HataCevap(e.getHata(), e.getMessage()));
     }
 
+    /** Is kurali ihlali: olmayan kayit, gecersiz tur, eksik secim. */
+    @ExceptionHandler(IsKuraliHatasi.class)
+    public ResponseEntity<HataCevap> isKuraliHatasi(IsKuraliHatasi e) {
+        return ResponseEntity.badRequest()
+                .body(new HataCevap(e.getHata(), e.getMessage()));
+    }
+
     /** @Valid takildi: bos veya eksik alan. */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<HataCevap> dogrulamaHatasi(MethodArgumentNotValidException e) {
