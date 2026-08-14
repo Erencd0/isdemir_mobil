@@ -31,7 +31,7 @@ export default function GirisEkrani({ onGiris }: Props) {
   // Tablet / yatay ekranda tasarim iki sutuna ayrilir, telefonda alt alta gelir.
   const genisEkran = width >= 900;
 
-  const [kullaniciKodu, setKullaniciKodu] = useState('');
+  const [kullaniciAdi, setKullaniciAdi] = useState('');
   const [rol, setRol] = useState('');
   const [parola, setParola] = useState('');
   const [roller, setRoller] = useState<string[]>([]);
@@ -68,7 +68,7 @@ export default function GirisEkrani({ onGiris }: Props) {
    * dogrulamadan sonra parolayi degistirip giris yapabilirdi.
    */
   function bilgiDegisti(alan: 'kod' | 'parola', deger: string) {
-    if (alan === 'kod') setKullaniciKodu(deger);
+    if (alan === 'kod') setKullaniciAdi(deger);
     else setParola(deger);
 
     if (asama === 'giris') {
@@ -84,8 +84,8 @@ export default function GirisEkrani({ onGiris }: Props) {
   async function kontrolEt() {
     klavyeyiKapat();
 
-    if (!kullaniciKodu.trim()) {
-      setMesaj({ metin: 'Kullanıcı kodunuzu giriniz', basarili: false });
+    if (!kullaniciAdi.trim()) {
+      setMesaj({ metin: 'Kullanıcı adınızı giriniz', basarili: false });
       return;
     }
     if (!parola) {
@@ -97,7 +97,7 @@ export default function GirisEkrani({ onGiris }: Props) {
     setMesaj(null);
 
     try {
-      const gelen = await api.kimlikKontrol({ kullaniciKodu: kullaniciKodu.trim(), parola });
+      const gelen = await api.kimlikKontrol({ kullaniciAdi: kullaniciAdi.trim(), parola });
 
       if (!gelen.roller || gelen.roller.length === 0) {
         setRolMetni('Tanımlı rol yok');
@@ -135,17 +135,18 @@ export default function GirisEkrani({ onGiris }: Props) {
     setMesaj(null);
 
     try {
-      const data = await api.girisYap({ kullaniciKodu: kullaniciKodu.trim(), parola, rol });
+      const data = await api.girisYap({ kullaniciAdi: kullaniciAdi.trim(), parola, rol });
       setMesaj({
-        metin: 'Hoş geldiniz, ' + (data.kullaniciAdi || kullaniciKodu) + ' (' + data.rol + ')',
+        metin:
+          'Hoş geldiniz, ' + data.kullanici.kullaniciAdi + ' (' + data.kullanici.rol + ')',
         basarili: true,
       });
 
       // Basari mesaji bir an gorunsun, sonra ana ekrana gec.
       setTimeout(() => {
         onGiris({
-          kullaniciAdi: data.kullaniciAdi || kullaniciKodu.trim(),
-          rol: data.rol,
+          kullaniciAdi: data.kullanici.kullaniciAdi,
+          rol: data.kullanici.rol,
           accessToken: data.accessToken,
           refreshToken: data.refreshToken,
         });
@@ -179,7 +180,7 @@ export default function GirisEkrani({ onGiris }: Props) {
       </View>
 
       {/* ---------- kullanici kodu ---------- */}
-      <Text className="mb-2 mt-6 text-[13px] font-semibold text-neutral-700">Kullanıcı Kodu</Text>
+      <Text className="mb-2 mt-6 text-[13px] font-semibold text-neutral-700">Kullanıcı Adı</Text>
       <View
         className={
           'h-[54px] flex-row items-center rounded-xl border bg-white px-3.5 ' +
@@ -193,11 +194,11 @@ export default function GirisEkrani({ onGiris }: Props) {
         />
         <TextInput
           ref={kodAlani}
-          value={kullaniciKodu}
+          value={kullaniciAdi}
           onChangeText={(metin) => bilgiDegisti('kod', metin)}
           onFocus={() => setOdak('kod')}
           onBlur={() => setOdak(null)}
-          placeholder="Kullanıcı kodunuzu girin"
+          placeholder="Kullanıcı adınızı girin"
           placeholderTextColor="#9CA3AF"
           autoCapitalize="none"
           autoCorrect={false}
