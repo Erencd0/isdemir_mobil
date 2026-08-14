@@ -62,7 +62,9 @@ public class MalzemeService {
      * "kayit cakisti" gibi alakasiz bir mesaj giderdi.
      */
     @Transactional
-    public MalzemeKullanimCevap kullanimEkle(MalzemeKullanimIstek istek) {
+    public MalzemeKullanimCevap kullanimEkle(String rol, MalzemeKullanimIstek istek) {
+        DokumService.yazabilenKonverter(rol);
+
         if (!dokumRepository.existsById(istek.dokumId())) {
             throw new IsKuraliException(HttpStatus.NOT_FOUND, "DOKUM_BULUNAMADI",
                     "Döküm bulunamadı: " + istek.dokumId());
@@ -93,7 +95,9 @@ public class MalzemeService {
 
     /** Yanlis girilen bir kullanim kaydini siler. */
     @Transactional
-    public void kullanimSil(Long malzemeKullanimId) {
+    public void kullanimSil(String rol, Long malzemeKullanimId) {
+        DokumService.yazabilenKonverter(rol);
+
         if (!malzemeKullanimRepository.existsById(malzemeKullanimId)) {
             throw new IsKuraliException(HttpStatus.NOT_FOUND, "KAYIT_BULUNAMADI",
                     "Silinecek malzeme kaydı bulunamadı: " + malzemeKullanimId);

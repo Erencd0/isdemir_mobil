@@ -16,6 +16,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+
 import java.util.List;
 
 /**
@@ -49,5 +52,24 @@ public class DokumController {
                               @RequestAttribute(JwtFiltresi.ROL) String rol,
                               @Valid @RequestBody DokumOlusturIstek istek) {
         return dokumService.olustur(kullaniciId, rol, istek);
+    }
+
+    /**
+     * Mevcut dokumu gunceller. Govde olusturmayla ayni;
+     * dokum numarasi ve konverter degismez.
+     */
+    @PutMapping("/{dokumId}")
+    public DokumCevap guncelle(@RequestAttribute(JwtFiltresi.ROL) String rol,
+                               @PathVariable Long dokumId,
+                               @Valid @RequestBody DokumOlusturIstek istek) {
+        return dokumService.guncelle(rol, dokumId, istek);
+    }
+
+    /** Dokum siler. Yalnizca o konverterin en son dokumu silinebilir. */
+    @DeleteMapping("/{dokumId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void sil(@RequestAttribute(JwtFiltresi.ROL) String rol,
+                    @PathVariable Long dokumId) {
+        dokumService.sil(rol, dokumId);
     }
 }

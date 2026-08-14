@@ -35,4 +35,34 @@ public interface DokumRepository extends JpaRepository<Dokum, Long> {
     boolean cakisanDokumVarMi(@Param("konverterNo") Long konverterNo,
                               @Param("baslangic") LocalDateTime baslangic,
                               @Param("bitis") LocalDateTime bitis);
+
+    /**
+     * Guncelleme icin cakisma kontrolu: dokumun kendisi hesaba katilmaz,
+     * yoksa kayit her zaman kendisiyle cakisir ve hicbir guncelleme gecmez.
+     */
+    @Query("""
+            select count(d) > 0 from Dokum d
+            where d.konverterNo = :konverterNo
+              and d.dokumId <> :haricDokumId
+              and d.hurdaSarjBaslama <= :bitis
+              and d.dokumZamani >= :baslangic
+            """)
+    boolean cakisanBaskaDokumVarMi(@Param("konverterNo") Long konverterNo,
+                                   @Param("haricDokumId") Long haricDokumId,
+                                   @Param("baslangic") LocalDateTime baslangic,
+                                   @Param("bitis") LocalDateTime bitis);
+
+    /**
+     * O konverterde en son olusturulan dokumun id'si.
+     *
+     * "Son" olcusu dokum_no: numara her yeni kayitta artiyor, dolayisiyla en
+     * buyuk numara en son girilen kayittir. Dokum zamanina bakmiyoruz, cunku
+     * gecmise donuk girilen bir kaydin zamani eski olsa da kayit sirasi sondur.
+     */
+    @Query("""
+            select d.dokumId from Dokum d
+            where d.konverterNo = :konverterNo
+              and d.dokumNo = (select max(x.dokumNo) from Dokum x where x.konverterNo = :konverterNo)
+            """)
+    Long sonDokumId(@Param("konverterNo") Long konverterNo);
 }

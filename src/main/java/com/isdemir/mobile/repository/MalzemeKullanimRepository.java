@@ -26,4 +26,10 @@ public interface MalzemeKullanimRepository extends JpaRepository<MalzemeKullanim
             order by k.malzemeKullanimId asc
             """)
     List<MalzemeKullanimCevap> dokumKullanimlari(@Param("dokumId") Long dokumId);
+
+    /**
+     * Dokum silinirken ona bagli malzeme kayitlarini temizler.
+     * Yabanci anahtar yuzunden bunlar durdukca dokum silinemez.
+     */
+    void deleteByDokumId(Long dokumId);
 }

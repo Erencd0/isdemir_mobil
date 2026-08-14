@@ -79,6 +79,40 @@ async function cevabiCoz(res: Response) {
   return govde ? JSON.parse(govde) : null;
 }
 
+// ---------------------------------------------------------------------------
+// Oturum tokeni
+// ---------------------------------------------------------------------------
+
+/**
+ * Giris disindaki tum uclar Authorization basligi bekliyor.
+ * Token'i modul icinde tutuyoruz ki her ekran tek tek tasimak zorunda kalmasin;
+ * giriste ayarlanir, cikista temizlenir.
+ *
+ * TODO: Uygulama kapanip acildiginda oturum kaybolmasin diye
+ * expo-secure-store'a yazilmali.
+ */
+let oturumTokeni: string | null = null;
+
+export function tokenAyarla(token: string | null) {
+  oturumTokeni = token;
+}
+
+/** Korumali uclara istek atar, Authorization basligini ekler. */
+async function istek(yol: string, secenekler: RequestInit = {}) {
+  const basliklar: Record<string, string> = {
+    ...((secenekler.headers as Record<string, string>) ?? {}),
+  };
+  if (oturumTokeni) {
+    basliklar.Authorization = 'Bearer ' + oturumTokeni;
+  }
+  if (secenekler.body) {
+    basliklar['Content-Type'] = 'application/json';
+  }
+
+  const res = await fetch(SUNUCU_ADRESI + yol, { ...secenekler, headers: basliklar });
+  return cevabiCoz(res);
+}
+
 /**
  * 1. asama: kullanici adi + parolayi dogrular, tanimli rolleri getirir.
  * Rol gonderilmedigi icin backend rol listesi doner.
@@ -126,4 +160,139 @@ export async function girisYap(govde: {
     body: JSON.stringify(govde),
   });
   return cevabiCoz(res);
+}
+
+// ---------------------------------------------------------------------------
+// Dokum
+// ---------------------------------------------------------------------------
+
+/**
+ * Bir dokum kaydi. dokumNo ve konverterNo backend'de uretilir/rolden gelir,
+ * istemci gondermez.
+ */
+export type Dokum = {
+  dokumId: number;
+  dokumNo: number;
+  konverterNo: number;
+  hurdaSarjBaslama: string;
+  hurdaSarjBitis: string;
+  anaUflemeBaslama: string;
+  anaUflemeBitis: string;
+  dokumZamani: string;
+  shdSicaklik: number;
+  dokumSicaklik: number;
+  lansSkalDurum: string | null;
+  kullaniciId: number;
+  operatorId: number;
+  operatorAdSoyad: string;
+};
+
+/** Yeni dokum kaydi - bes zamanin besi de zorunlu, kayit surec bitince girilir. */
+export type YeniDokum = {
+  hurdaSarjBaslama: string;
+  hurdaSarjBitis: string;
+  anaUflemeBaslama: string;
+  anaUflemeBitis: string;
+  dokumZamani: string;
+  shdSicaklik: number;
+  dokumSicaklik: number;
+  lansSkalDurum: string | null;
+  operatorId: number;
+};
+
+/** aktif=false olan operatorler yeni dokumde secilemez, gecmis dokumlerde gorunur. */
+export type Operator = { operatorId: number; adSoyad: string; aktif: boolean };
+
+/** Giristeki role gore filtrelenmis dokum listesi (KV1 kullanicisi sadece KV1'i gorur). */
+export function dokumleriGetir(): Promise<Dokum[]> {
+  return istek('/api/dokumler');
+}
+
+export function dokumGetir(dokumId: number): Promise<Dokum> {
+  return istek('/api/dokumler/' + dokumId);
+}
+
+export function dokumOlustur(govde: YeniDokum): Promise<Dokum> {
+  return istek('/api/dokumler', { method: 'POST', body: JSON.stringify(govde) });
+}
+
+/** Mevcut dokumu gunceller. Govde olusturmayla ayni. */
+export function dokumGuncelle(dokumId: number, govde: YeniDokum): Promise<Dokum> {
+  return istek('/api/dokumler/' + dokumId, { method: 'PUT', body: JSON.stringify(govde) });
+}
+
+/** Dokum siler. Backend yalnizca o konverterin en son dokumune izin verir. */
+export function dokumSil(dokumId: number): Promise<null> {
+  return istek('/api/dokumler/' + dokumId, { method: 'DELETE' });
+}
+
+export function operatorleriGetir(): Promise<Operator[]> {
+  return istek('/api/operatorler');
+}
+
+// ---------------------------------------------------------------------------
+// Malzeme
+// ---------------------------------------------------------------------------
+
+/** Malzeme katalogundaki bir satir. */
+export type MalzemeTanim = {
+  malzemeId: number;
+  malzemeKodu: number;
+  malzemeTuru: string;
+  malzemeAdi: string;
+};
+
+/** Bir dokume girilmis malzeme kullanimi. */
+export type MalzemeKullanim = {
+  malzemeKullanimId: number;
+  dokumId: number;
+  malzemeId: number;
+  malzemeAdi: string;
+  malzemeTuru: string;
+  miktar: number;
+  verilisTarihi: string;
+};
+
+/** Katki turleri - backend'deki malzeme_turu degerleriyle birebir ayni olmali. */
+export const KATKI_TURLERI = [
+  { deger: 'KONVKATKI', ad: 'Konverter' },
+  { deger: 'POTAKATKI', ad: 'Pota' },
+  { deger: 'HURDAKATKI', ad: 'Hurda' },
+] as const;
+
+export function malzemeTanimlariGetir(tur: string): Promise<MalzemeTanim[]> {
+  return istek('/api/dokum/malzemeler?tur=' + encodeURIComponent(tur));
+}
+
+export function dokumMalzemeleriGetir(dokumId: number): Promise<MalzemeKullanim[]> {
+  return istek('/api/dokum/' + dokumId + '/malzemeler');
+}
+
+export function malzemeEkle(govde: {
+  dokumId: number;
+  malzemeId: number;
+  miktar: number;
+  verilisTarihi?: string;
+}): Promise<MalzemeKullanim> {
+  return istek('/api/dokum/malzeme', { method: 'POST', body: JSON.stringify(govde) });
+}
+
+export function malzemeSil(malzemeKullanimId: number): Promise<null> {
+  return istek('/api/dokum/malzeme/' + malzemeKullanimId, { method: 'DELETE' });
+}
+
+// ---------------------------------------------------------------------------
+// Rol kurallari
+// ---------------------------------------------------------------------------
+
+/** Butun konverterleri goren ama hicbir kayda dokunamayan rol. */
+export const GENEL_KULLANICI = 'Genel_kullanici';
+
+/**
+ * Bu rol sadece goruntuleyebilir mi?
+ * Arayuz ekleme/silme/guncelleme butonlarini buna gore gizler; backend de
+ * ayni kurali uyguluyor, arayuz sadece gereksiz denemeyi onluyor.
+ */
+export function saltOkunur(rol: string): boolean {
+  return rol === GENEL_KULLANICI;
 }

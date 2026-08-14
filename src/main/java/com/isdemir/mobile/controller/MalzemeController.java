@@ -3,6 +3,7 @@ package com.isdemir.mobile.controller;
 import com.isdemir.mobile.dto.MalzemeKullanimCevap;
 import com.isdemir.mobile.dto.MalzemeKullanimIstek;
 import com.isdemir.mobile.entity.MalzemeTanim;
+import com.isdemir.mobile.security.JwtFiltresi;
 import com.isdemir.mobile.service.MalzemeService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -46,17 +48,22 @@ public class MalzemeController {
         return malzemeService.dokumKullanimlari(dokumId);
     }
 
-    /** Dokume malzeme kullanimi ekler, olusan kaydi doner. */
+    /**
+     * Dokume malzeme kullanimi ekler, olusan kaydi doner.
+     * Genel_kullanici salt okunurdur, bu uca erisemez.
+     */
     @PostMapping("/malzeme")
     @ResponseStatus(HttpStatus.CREATED)
-    public MalzemeKullanimCevap malzemeEkle(@Valid @RequestBody MalzemeKullanimIstek istek) {
-        return malzemeService.kullanimEkle(istek);
+    public MalzemeKullanimCevap malzemeEkle(@RequestAttribute(JwtFiltresi.ROL) String rol,
+                                            @Valid @RequestBody MalzemeKullanimIstek istek) {
+        return malzemeService.kullanimEkle(rol, istek);
     }
 
     /** Yanlis girilen kullanim kaydini siler. Govde yok, 204 doner. */
     @DeleteMapping("/malzeme/{malzemeKullanimId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void malzemeSil(@PathVariable Long malzemeKullanimId) {
-        malzemeService.kullanimSil(malzemeKullanimId);
+    public void malzemeSil(@RequestAttribute(JwtFiltresi.ROL) String rol,
+                           @PathVariable Long malzemeKullanimId) {
+        malzemeService.kullanimSil(rol, malzemeKullanimId);
     }
 }
