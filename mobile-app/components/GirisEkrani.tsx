@@ -19,8 +19,13 @@ import RolSecici from './RolSecici';
 
 type Mesaj = { metin: string; basarili: boolean };
 
-export default function GirisEkrani() {
-  const { width } = useWindowDimensions();
+type Props = {
+  /** Giris basarili olunca oturum bilgisiyle cagrilir; App.tsx ana ekrana gecer. */
+  onGiris: (oturum: api.Oturum) => void;
+};
+
+export default function GirisEkrani({ onGiris }: Props) {
+  const { width, height } = useWindowDimensions();
   const guvenliAlan = useSafeAreaInsets();
 
   // Tablet / yatay ekranda tasarim iki sutuna ayrilir, telefonda alt alta gelir.
@@ -30,8 +35,15 @@ export default function GirisEkrani() {
   const [rol, setRol] = useState('');
   const [parola, setParola] = useState('');
   const [roller, setRoller] = useState<string[]>([]);
-  const [rolMetni, setRolMetni] = useState('Önce kullanıcı kodu giriniz');
+  const [rolMetni, setRolMetni] = useState('Önce bilgilerinizi kontrol edin');
   const [parolaGizli, setParolaGizli] = useState(true);
+
+  /**
+   * Giris iki asamali:
+   *   'kontrol' -> kullanici adi + parola dogrulanir, roller gelir
+   *   'giris'   -> rol secilir ve giris yapilir
+   */
+  const [asama, setAsama] = useState<'kontrol' | 'giris'>('kontrol');
   const [yukleniyor, setYukleniyor] = useState(false);
   const [mesaj, setMesaj] = useState<Mesaj | null>(null);
   const [odak, setOdak] = useState<'kod' | 'parola' | null>(null);
@@ -50,40 +62,72 @@ export default function GirisEkrani() {
     Keyboard.dismiss();
   }
 
-  /** Kullanici kodu alanindan cikildiginda o kullaniciya ait rolleri yukle. */
-  async function rolleriYukle() {
-    setOdak(null);
-    const kod = kullaniciKodu.trim();
-    setRol('');
-    setRoller([]);
+  /**
+   * Kullanici adi veya parola degistiginde yapilan dogrulama gecersizlesir:
+   * kontrol asamasina donulur, roller temizlenir. Aksi halde kullanici
+   * dogrulamadan sonra parolayi degistirip giris yapabilirdi.
+   */
+  function bilgiDegisti(alan: 'kod' | 'parola', deger: string) {
+    if (alan === 'kod') setKullaniciKodu(deger);
+    else setParola(deger);
 
-    if (!kod) {
-      setRolMetni('Önce kullanıcı kodu giriniz');
-      return;
-    }
-
-    setRolMetni('Roller yükleniyor...');
-    try {
-      const gelen = await api.rolleriGetir(kod);
-      setRoller(gelen);
-      setRolMetni(gelen.length === 0 ? 'Tanımlı rol yok' : 'Rol seçiniz');
+    if (asama === 'giris') {
+      setAsama('kontrol');
+      setRoller([]);
+      setRol('');
+      setRolMetni('Önce bilgilerinizi kontrol edin');
       setMesaj(null);
-    } catch {
-      setRolMetni('Roller yüklenemedi');
     }
   }
 
-  async function girisYap() {
+  /** 1. asama: kullanici adi + parolayi dogrula, tanimli rolleri getir. */
+  async function kontrolEt() {
+    klavyeyiKapat();
+
     if (!kullaniciKodu.trim()) {
       setMesaj({ metin: 'Kullanıcı kodunuzu giriniz', basarili: false });
       return;
     }
-    if (!rol) {
-      setMesaj({ metin: 'Lütfen konverter / rol seçiniz', basarili: false });
-      return;
-    }
     if (!parola) {
       setMesaj({ metin: 'Parolanızı giriniz', basarili: false });
+      return;
+    }
+
+    setYukleniyor(true);
+    setMesaj(null);
+
+    try {
+      const gelen = await api.kimlikKontrol({ kullaniciKodu: kullaniciKodu.trim(), parola });
+
+      if (!gelen.roller || gelen.roller.length === 0) {
+        setRolMetni('Tanımlı rol yok');
+        setMesaj({
+          metin: 'Bu kullanıcıya tanımlı konverter / rol yok. Yöneticinize başvurun.',
+          basarili: false,
+        });
+        return;
+      }
+
+      setRoller(gelen.roller);
+      setRolMetni('Rol seçiniz');
+      setAsama('giris');
+      setMesaj({
+        metin: 'Bilgileriniz doğrulandı. Konverter / rol seçip giriş yapın.',
+        basarili: true,
+      });
+    } catch (err) {
+      setMesaj({ metin: (err as Error).message, basarili: false });
+    } finally {
+      setYukleniyor(false);
+    }
+  }
+
+  /** 2. asama: secilen rol ile giris yap. Kimlik bu noktada dogrulanmis durumda. */
+  async function girisYap() {
+    klavyeyiKapat();
+
+    if (!rol) {
+      setMesaj({ metin: 'Lütfen konverter / rol seçiniz', basarili: false });
       return;
     }
 
@@ -97,8 +141,17 @@ export default function GirisEkrani() {
         basarili: true,
       });
 
-      // TODO: Oturumu kaydedip döküm ekranina yonlendirin.
-      // Web tarafinda bu is oturum.js + navigate('/dokum') ile yapiliyor.
+      // Basari mesaji bir an gorunsun, sonra ana ekrana gec.
+      setTimeout(() => {
+        onGiris({
+          kullaniciAdi: data.kullaniciAdi || kullaniciKodu.trim(),
+          rol: data.rol,
+          accessToken: data.accessToken,
+          refreshToken: data.refreshToken,
+        });
+      }, 700);
+
+      // TODO: Token'lari expo-secure-store ile cihazda saklayin.
     } catch (err) {
       setMesaj({ metin: (err as Error).message, basarili: false });
     } finally {
@@ -141,9 +194,9 @@ export default function GirisEkrani() {
         <TextInput
           ref={kodAlani}
           value={kullaniciKodu}
-          onChangeText={setKullaniciKodu}
+          onChangeText={(metin) => bilgiDegisti('kod', metin)}
           onFocus={() => setOdak('kod')}
-          onBlur={rolleriYukle}
+          onBlur={() => setOdak(null)}
           placeholder="Kullanıcı kodunuzu girin"
           placeholderTextColor="#9CA3AF"
           autoCapitalize="none"
@@ -153,10 +206,6 @@ export default function GirisEkrani() {
           className="ml-2.5 h-full flex-1 text-[15px] text-neutral-900"
         />
       </View>
-
-      {/* ---------- konverter / rol ---------- */}
-      <Text className="mb-2 mt-4 text-[13px] font-semibold text-neutral-700">Konverter / Rol</Text>
-      <RolSecici deger={rol} secenekler={roller} bosMetin={rolMetni} onSec={setRol} />
 
       {/* ---------- parola ---------- */}
       <Text className="mb-2 mt-4 text-[13px] font-semibold text-neutral-700">Parola</Text>
@@ -174,7 +223,7 @@ export default function GirisEkrani() {
         <TextInput
           ref={parolaAlani}
           value={parola}
-          onChangeText={setParola}
+          onChangeText={(metin) => bilgiDegisti('parola', metin)}
           onFocus={() => setOdak('parola')}
           onBlur={() => setOdak(null)}
           placeholder="Parolanızı girin"
@@ -183,13 +232,17 @@ export default function GirisEkrani() {
           autoCapitalize="none"
           autoCorrect={false}
           returnKeyType="go"
-          onSubmitEditing={girisYap}
+          onSubmitEditing={asama === 'kontrol' ? kontrolEt : girisYap}
           className="ml-2.5 h-full flex-1 text-[15px] text-neutral-900"
         />
         <Pressable onPress={() => setParolaGizli(!parolaGizli)} hitSlop={10}>
           <Ionicons name={parolaGizli ? 'eye-outline' : 'eye-off-outline'} size={20} color="#9CA3AF" />
         </Pressable>
       </View>
+
+      {/* ---------- konverter / rol (kimlik dogrulanana kadar kilitli) ---------- */}
+      <Text className="mb-2 mt-4 text-[13px] font-semibold text-neutral-700">Konverter / Rol</Text>
+      <RolSecici deger={rol} secenekler={roller} bosMetin={rolMetni} onSec={setRol} />
 
       {/* ---------- hata / basari mesaji ---------- */}
       {mesaj && (
@@ -217,10 +270,10 @@ export default function GirisEkrani() {
 
       {/* ---------- giris butonu ---------- */}
       <Pressable
-        onPress={girisYap}
+        onPress={asama === 'kontrol' ? kontrolEt : girisYap}
         disabled={yukleniyor}
         accessibilityRole="button"
-        accessibilityLabel="Giriş yap"
+        accessibilityLabel={asama === 'kontrol' ? 'Bilgileri kontrol et' : 'Giriş yap'}
         className={
           'mt-5 h-[56px] flex-row items-center justify-center rounded-xl bg-isdemir-500 active:bg-isdemir-600 ' +
           (yukleniyor ? 'opacity-70' : '')
@@ -236,7 +289,14 @@ export default function GirisEkrani() {
         {yukleniyor ? (
           <ActivityIndicator color="#FFFFFF" />
         ) : (
-          <Text className="text-[17px] font-bold tracking-wide text-white">Giriş Yap</Text>
+          <>
+            {asama === 'giris' && (
+              <Ionicons name="checkmark-circle" size={19} color="#FFFFFF" style={{ marginRight: 8 }} />
+            )}
+            <Text className="text-[17px] font-bold tracking-wide text-white">
+              {asama === 'kontrol' ? 'Kontrol Et' : 'Giriş Yap'}
+            </Text>
+          </>
         )}
       </Pressable>
 
@@ -278,7 +338,12 @@ export default function GirisEkrani() {
     >
       {/* Kaydirma olmadigi icin bosluga dokununca klavye kapansin diye sarmalayici */}
       <Pressable className="flex-1" onPress={klavyeyiKapat} accessible={false}>
-        <HeroPanel genisEkran={false} ustBosluk={guvenliAlan.top} />
+        {/* Mesaj kutusu acildiginda veya kucuk ekranda ust bant kisalir */}
+        <HeroPanel
+          genisEkran={false}
+          ustBosluk={guvenliAlan.top}
+          kompakt={!!mesaj || height < 780}
+        />
 
         <View
           className="-mt-8 rounded-t-[32px] bg-neutral-50 px-7 pt-7"

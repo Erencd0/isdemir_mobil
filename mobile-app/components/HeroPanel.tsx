@@ -8,9 +8,15 @@ type Props = {
   genisEkran: boolean;
   /** Centik (notch) yuksekligi - icerigi asagi iter. */
   ustBosluk: number;
+  /**
+   * Alan daraldiginda (form mesaj kutusu acildiginda ya da kucuk ekranlarda)
+   * alt aciklama gizlenir. Yoksa metin form kagidinin altinda kalip kesiliyor.
+   */
+  kompakt?: boolean;
 };
 
-export default function HeroPanel({ genisEkran, ustBosluk }: Props) {
+export default function HeroPanel({ genisEkran, ustBosluk, kompakt = false }: Props) {
+  const aciklamaGoster = genisEkran || !kompakt;
   return (
     // flex-1: formdan artan alani doldurur, boylece ekran kaydirmadan tam oturur
     <View
@@ -76,14 +82,16 @@ export default function HeroPanel({ genisEkran, ustBosluk }: Props) {
             Üretimin her adımı{'\n'}tek ekranda.
           </Text>
 
-          <Text
-            className={
-              'mt-4 text-white/45 ' +
-              (genisEkran ? 'max-w-[420px] text-lg leading-7' : 'text-[15px] leading-[22px]')
-            }
-          >
-            Döküm süreçlerini güvenli, hızlı ve kesintisiz olarak takip edin.
-          </Text>
+          {aciklamaGoster && (
+            <Text
+              className={
+                'mt-4 text-white/45 ' +
+                (genisEkran ? 'max-w-[420px] text-lg leading-7' : 'text-[15px] leading-[22px]')
+              }
+            >
+              Döküm süreçlerini güvenli, hızlı ve kesintisiz olarak takip edin.
+            </Text>
+          )}
         </View>
       </View>
     </View>
