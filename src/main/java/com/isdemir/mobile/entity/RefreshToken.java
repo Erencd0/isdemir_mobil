@@ -40,4 +40,8 @@ public class RefreshToken {
 
     @Column(name = "aktif_pasif")
     private Boolean aktifPasif;
+
+    /** Giriste secilen rol. Oturum boyunca sabit; refresh ayni rolle token uretir. */
+    @Column(name = "rol")
+    private String rol;
 }

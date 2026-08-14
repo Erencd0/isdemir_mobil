@@ -33,15 +33,19 @@ public class JwtYonetici {
     }
 
     /**
-     * Token kullaniciyi temsil eder, rolu degil - icinde rol claim'i YOKTUR.
-     * Rol secimi ekran tercihidir; token ile arasinda bag kurmuyoruz, bu sayede
-     * refresh sirasinda "bu oturum hangi roldeydi" sorusu hic dogmuyor.
+     * Token hem kullaniciyi hem oturumun rolunu tasir.
+     * Rol claim'i yetki kontrolu icin var: "kv1 sadece kv1 dokumlerini gorur" gibi
+     * kisitlar buna bakar, istek govdesinden gelen role degil - onu istemci degistirebilir.
+     *
+     * @param rol giriste secilen rol. Oturum boyunca sabittir; refresh ayni rolu
+     *            refresh_token_tablosu'ndan okuyup buraya geri verir.
      */
-    public String uret(Kullanici kullanici) {
+    public String uret(Kullanici kullanici, String rol) {
         Instant simdi = Instant.now();
         return Jwts.builder()
                 .subject(kullanici.getKullaniciAdi())
                 .claim("kullaniciId", kullanici.getId())
+                .claim("rol", rol)
                 .issuedAt(Date.from(simdi))
                 .expiration(Date.from(simdi.plusSeconds(gecerlilikSn)))
                 .signWith(anahtar)

@@ -77,6 +77,9 @@ public class AuthService {
                 .filter(k -> Boolean.TRUE.equals(k.getAktifPasif()))
                 .filter(k -> k.getBitisZamani() != null
                         && k.getBitisZamani().isAfter(LocalDateTime.now()))
+                // Rol kolonu eklenmeden once acilmis oturumlar: rolsuz token uretmektense
+                // tekrar giris istiyoruz.
+                .filter(k -> k.getRol() != null)
                 .orElseThrow(this::gecersizRefresh);
 
         Kullanici kullanici = kullaniciRepository.findById(kayit.getKullaniciId())
@@ -84,9 +87,9 @@ public class AuthService {
 
         kayit.setAktifPasif(false);
 
-        // Rol artik hicbir yerde tutulmuyor, cevapta da bos gider.
-        // Frontend giriste aldigi rolu kendi saklar.
-        return tokenUret(kullanici, null);
+        // Oturumun rolu eski kayitta duruyor, yeni token da ayni rolle uretilir.
+        // Rol degistirmek icin yeniden giris gerekir.
+        return tokenUret(kullanici, kayit.getRol());
     }
 
     private AuthException gecersizRefresh() {
@@ -115,9 +118,9 @@ public class AuthService {
     /**
      * Access token + refresh token uretir, refresh'i DB'ye yazar.
      *
-     * @param rol sadece cevap govdesinde geri yansitilir, token'in icine GIRMEZ.
-     *            Giriste secilen roldur; refresh'te null gelir cunku o bilgi
-     *            hicbir yerde saklanmiyor.
+     * @param rol oturumun rolu. Uc yere birden gider: token'in icine claim olarak
+     *            (yetki kontrolu buna bakar), refresh kaydina (refresh bu satirdan
+     *            okuyup ayni rolu tekrar verir) ve cevap govdesine.
      */
     TokenCevap tokenUret(Kullanici kullanici, String rol) {
         RefreshToken kayit = new RefreshToken();
@@ -126,10 +129,11 @@ public class AuthService {
         kayit.setOlusturulmaZamani(LocalDateTime.now());
         kayit.setBitisZamani(LocalDateTime.now().plusDays(refreshGecerlilikGun));
         kayit.setAktifPasif(true);
+        kayit.setRol(rol);
         refreshTokenRepository.save(kayit);
 
         return new TokenCevap(
-                jwtYonetici.uret(kullanici),
+                jwtYonetici.uret(kullanici, rol),
                 kayit.getRefreshToken(),
                 "Bearer",
                 jwtYonetici.getGecerlilikSn(),

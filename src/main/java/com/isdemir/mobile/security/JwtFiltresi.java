@@ -36,6 +36,8 @@ public class JwtFiltresi extends OncePerRequestFilter {
 
     public static final String KULLANICI_ID = "kullaniciId";
     public static final String KULLANICI_ADI = "kullaniciAdi";
+    /** Oturumun rolu - "kv1 sadece kv1 dokumlerini gorur" gibi kisitlar bunu okur. */
+    public static final String ROL = "rol";
 
     private static final String BEARER = "Bearer ";
 
@@ -69,6 +71,7 @@ public class JwtFiltresi extends OncePerRequestFilter {
 
         istek.setAttribute(KULLANICI_ID, icerik.get(KULLANICI_ID, Number.class).longValue());
         istek.setAttribute(KULLANICI_ADI, icerik.getSubject());
+        istek.setAttribute(ROL, icerik.get(ROL, String.class));
 
         zincir.doFilter(istek, cevap);
     }
