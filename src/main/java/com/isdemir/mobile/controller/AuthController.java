@@ -39,7 +39,7 @@ public class AuthController {
     /**
      * Access token'in suresi dolunca frontend arka planda cagirir, kullanici gormez.
      * Token istemez - zaten olu token yuzunden buraya geliniyor.
-     * Cevap login ile ayni govde, tek fark kullanici.rol bos gelir.
+     * Cevap login ile birebir ayni govde: rol de dahil, oturumun rolu korunur.
      */
     @PostMapping("/refresh")
     public TokenCevap refresh(@Valid @RequestBody RefreshIstek istek) {

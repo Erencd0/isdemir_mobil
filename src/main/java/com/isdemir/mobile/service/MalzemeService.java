@@ -4,21 +4,22 @@ import com.isdemir.mobile.dto.MalzemeKullanimCevap;
 import com.isdemir.mobile.dto.MalzemeKullanimIstek;
 import com.isdemir.mobile.entity.MalzemeKullanim;
 import com.isdemir.mobile.entity.MalzemeTanim;
-import com.isdemir.mobile.exception.IsKuraliHatasi;
+import com.isdemir.mobile.exception.IsKuraliException;
+import com.isdemir.mobile.repository.DokumRepository;
 import com.isdemir.mobile.repository.MalzemeKullanimRepository;
 import com.isdemir.mobile.repository.MalzemeTanimRepository;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Malzeme tanimlari ve dokumdeki malzeme kullanimlari.
  *
- * "Tanim"   -> sistemde kayitli malzeme katalogu, salt okunur (ekran listeler).
+ * "Tanim"    -> sistemde kayitli malzeme katalogu, salt okunur (ekran listeler).
  * "Kullanim" -> bir dokume "su malzemeden su kadar verildi" kaydi, eklenip silinir.
  */
 @Service
@@ -30,17 +31,18 @@ public class MalzemeService {
 
     private final MalzemeTanimRepository malzemeTanimRepository;
     private final MalzemeKullanimRepository malzemeKullanimRepository;
+    private final DokumRepository dokumRepository;
 
     /** Verilen turdeki malzeme tanimlari - ekrandaki malzeme secim listesini doldurur. */
     public List<MalzemeTanim> tanimlar(String tur) {
         if (tur == null || tur.isBlank()) {
-            throw new IsKuraliHatasi("DOGRULAMA_HATASI",
+            throw new IsKuraliException(HttpStatus.BAD_REQUEST, "DOGRULAMA_HATASI",
                     "Malzeme türü seçiniz (KONVKATKI / POTAKATKI / HURDAKATKI)");
         }
 
         String buyukTur = tur.trim().toUpperCase();
         if (!GECERLI_TURLER.contains(buyukTur)) {
-            throw new IsKuraliHatasi("GECERSIZ_TUR",
+            throw new IsKuraliException(HttpStatus.BAD_REQUEST, "GECERSIZ_TUR",
                     "Geçersiz malzeme türü: " + tur + ". Beklenen: KONVKATKI, POTAKATKI veya HURDAKATKI");
         }
 
@@ -55,14 +57,19 @@ public class MalzemeService {
     /**
      * Dokume malzeme kullanimi ekler.
      *
-     * Malzemenin varligi burada kontrol ediliyor ki kullaniciya anlamli mesaj
-     * donebilelim. Dokumun varligini veritabanindaki yabanci anahtar zorluyor;
-     * olmayan bir dokum id'si gelirse asagida yakalanip mesaja cevriliyor.
+     * Dokum ve malzeme varligi kayittan once kontrol ediliyor: ikisi de yabanci
+     * anahtar oldugu icin veritabani zaten reddederdi, ama o durumda kullaniciya
+     * "kayit cakisti" gibi alakasiz bir mesaj giderdi.
      */
     @Transactional
     public MalzemeKullanimCevap kullanimEkle(MalzemeKullanimIstek istek) {
+        if (!dokumRepository.existsById(istek.dokumId())) {
+            throw new IsKuraliException(HttpStatus.NOT_FOUND, "DOKUM_BULUNAMADI",
+                    "Döküm bulunamadı: " + istek.dokumId());
+        }
+
         MalzemeTanim tanim = malzemeTanimRepository.findById(istek.malzemeId())
-                .orElseThrow(() -> new IsKuraliHatasi("MALZEME_BULUNAMADI",
+                .orElseThrow(() -> new IsKuraliException(HttpStatus.NOT_FOUND, "MALZEME_BULUNAMADI",
                         "Seçilen malzeme bulunamadı: " + istek.malzemeId()));
 
         MalzemeKullanim kullanim = new MalzemeKullanim();
@@ -72,14 +79,7 @@ public class MalzemeService {
         kullanim.setMalzemeVerilisTarihi(
                 istek.verilisTarihi() != null ? istek.verilisTarihi() : LocalDateTime.now());
 
-        MalzemeKullanim kayit;
-        try {
-            kayit = malzemeKullanimRepository.saveAndFlush(kullanim);
-        } catch (DataIntegrityViolationException e) {
-            // Tek kalan ihtimal dokum_id yabanci anahtari - malzemeyi yukarida dogruladik
-            throw new IsKuraliHatasi("DOKUM_BULUNAMADI",
-                    "Belirtilen döküm bulunamadı: " + istek.dokumId());
-        }
+        MalzemeKullanim kayit = malzemeKullanimRepository.save(kullanim);
 
         return new MalzemeKullanimCevap(
                 kayit.getMalzemeKullanimId(),
@@ -95,7 +95,7 @@ public class MalzemeService {
     @Transactional
     public void kullanimSil(Long malzemeKullanimId) {
         if (!malzemeKullanimRepository.existsById(malzemeKullanimId)) {
-            throw new IsKuraliHatasi("KAYIT_BULUNAMADI",
+            throw new IsKuraliException(HttpStatus.NOT_FOUND, "KAYIT_BULUNAMADI",
                     "Silinecek malzeme kaydı bulunamadı: " + malzemeKullanimId);
         }
         malzemeKullanimRepository.deleteById(malzemeKullanimId);

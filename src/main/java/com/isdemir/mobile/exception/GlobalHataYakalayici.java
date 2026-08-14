@@ -2,6 +2,8 @@ package com.isdemir.mobile.exception;
 
 import com.isdemir.mobile.dto.HataCevap;
 import org.springframework.context.support.DefaultMessageSourceResolvable;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -20,11 +22,21 @@ public class GlobalHataYakalayici {
                 .body(new HataCevap(e.getHata(), e.getMessage()));
     }
 
-    /** Is kurali ihlali: olmayan kayit, gecersiz tur, eksik secim. */
-    @ExceptionHandler(IsKuraliHatasi.class)
-    public ResponseEntity<HataCevap> isKuraliHatasi(IsKuraliHatasi e) {
-        return ResponseEntity.badRequest()
+    /** Zaman sirasi, pasif operator, yetkisiz konverter gibi is kurallari. */
+    @ExceptionHandler(IsKuraliException.class)
+    public ResponseEntity<HataCevap> isKuraliHatasi(IsKuraliException e) {
+        return ResponseEntity.status(e.getDurum())
                 .body(new HataCevap(e.getHata(), e.getMessage()));
+    }
+
+    /**
+     * DB kisiti takildi. Pratikte tek sebebi var: iki dokum ayni anda
+     * kaydedilip ayni dokum_no'yu almaya calisti. Tekrar denenince duzelir.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<HataCevap> veriCakismasi(DataIntegrityViolationException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new HataCevap("KAYIT_CAKISMASI", "Kayıt çakıştı, lütfen tekrar deneyin"));
     }
 
     /** @Valid takildi: bos veya eksik alan. */
