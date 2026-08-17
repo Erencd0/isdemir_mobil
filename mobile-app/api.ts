@@ -6,20 +6,29 @@
  *   rol GONDERILMEZ -> kullanici adi + parola dogrulanir, rol listesi doner
  *   rol GONDERILIR  -> secilen rol dogrulanir, token doner
  */
-import { Platform } from 'react-native';
+import { NativeModules, Platform } from 'react-native';
 
 /**
- * Backend adresi calistigin ortama gore degisir:
- *   iOS Simulator     -> http://localhost:8080
- *   Android Emulator  -> http://10.0.2.2:8080   (emulatorde localhost telefonun kendisidir)
- *   Gercek telefon    -> bilgisayarin yerel IP'si, orn. http://192.168.1.25:8080
- *                        (telefon ve bilgisayar ayni wifi'da olmali)
+ * Backend adresi calistigin ortama gore degisir.
+ *
+ * Gercek telefonda (Expo Go) localhost telefonun kendisidir, 10.0.2.2 ise sadece
+ * Android emulatorunde anlamlidir - ikisi de bilgisayara ulasmaz. Metro paketi
+ * telefona zaten bilgisayarin LAN IP'sinden geldigi icin backend adresini oradan
+ * turetiyoruz; boylece IP degisince elle guncelleme gerekmiyor.
+ * Telefon ve bilgisayar ayni wifi'da olmali.
  */
-export const SUNUCU_ADRESI = Platform.select({
-  ios: 'http://localhost:8080',
-  android: 'http://10.0.2.2:8080',
-  default: 'http://localhost:8080',
-}) as string;
+const kaynak: any = NativeModules.SourceCode;
+// Eski mimaride sabitler modulun uzerine yayiliyor, yeni mimaride getConstants() altinda.
+const paketAdresi: string | undefined = kaynak?.scriptURL ?? kaynak?.getConstants?.().scriptURL;
+const metroHost = paketAdresi?.split('://')[1]?.split(/[:/]/)[0];
+
+export const SUNUCU_ADRESI =
+  metroHost && metroHost !== 'localhost'
+    ? `http://${metroHost}:8080`
+    : (Platform.select({
+        android: 'http://10.0.2.2:8080',
+        default: 'http://localhost:8080',
+      }) as string);
 
 /**
  * DEMO MODU

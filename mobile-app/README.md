@@ -41,8 +41,9 @@ npx expo start --clear
 | Android Emulator | `http://10.0.2.2:8080` |
 | Gerçek telefon | `http://<bilgisayarın-yerel-IP>:8080` |
 
-Gerçek telefonda test ederken telefon ve bilgisayar aynı wifi'da olmalı,
-`api.ts` içindeki adresi kendi IP'nizle değiştirin (`ipconfig getifaddr en0`).
+Adres elle girilmiyor: gerçek telefonda Metro sunucusunun adresinden (yani
+bilgisayarın yerel IP'sinden) otomatik türetiliyor. Tek şart telefon ve
+bilgisayarın aynı wifi'da olması.
 
 Backend'i ayrı bir terminalde çalıştırmayı unutmayın:
 
