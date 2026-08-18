@@ -172,7 +172,7 @@ export default function DokumDetay({
 
           {/* künye */}
           <View className="mt-4 rounded-2xl border border-neutral-200 bg-white p-4">
-            <SatirBilgi etiket="Operatör" deger={dokum.operatorAdSoyad} />
+            <SatirBilgi etiket="Operatör" deger={dokum.operatorAdSoyad || 'seçilmemiş'} />
             <View className="my-3 h-px bg-neutral-100" />
             <SatirBilgi etiket="Lans skalası" deger={dokum.lansSkalDurum || 'belirtilmemiş'} />
           </View>

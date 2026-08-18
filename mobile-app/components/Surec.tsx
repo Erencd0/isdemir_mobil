@@ -11,8 +11,9 @@ import { dakikaFarki, saat, sureMetni } from '../zaman';
 
 type Asama = {
   ad: string;
-  bas: string;
-  bit: string;
+  /** Girilmemis olabilir; zaman yardimcilari null'da "--:--" doner. */
+  bas: string | null;
+  bit: string | null;
   dakika: number;
   renk: string;
 };

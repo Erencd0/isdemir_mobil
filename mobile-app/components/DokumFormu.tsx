@@ -56,9 +56,20 @@ export default function DokumFormu({ dokum, sonDokumZamani, onGeri, onKaydedildi
   const guvenliAlan = useSafeAreaInsets();
   const duzenleme = !!dokum;
 
-  const [gun, setGun] = useState(() =>
-    dokum ? new Date(dokum.dokumZamani.slice(0, 10) + 'T12:00:00') : new Date(),
-  );
+  /**
+   * Duzenlemede gun, kayittaki ilk dolu zamandan alinir; hicbiri yoksa bugun.
+   * Bos acilmis bir dokumun zamani olmayabilir.
+   */
+  const [gun, setGun] = useState(() => {
+    const ilkZaman =
+      dokum &&
+      (dokum.dokumZamani ??
+        dokum.hurdaSarjBaslama ??
+        dokum.anaUflemeBaslama ??
+        dokum.hurdaSarjBitis ??
+        dokum.anaUflemeBitis);
+    return ilkZaman ? new Date(ilkZaman.slice(0, 10) + 'T12:00:00') : new Date();
+  });
   const [zamanlar, setZamanlar] = useState<(Date | null)[]>(() =>
     dokum
       ? [
@@ -71,9 +82,11 @@ export default function DokumFormu({ dokum, sonDokumZamani, onGeri, onKaydedildi
       : [null, null, null, null, null],
   );
 
-  const [shd, setShd] = useState(dokum ? String(Math.round(dokum.shdSicaklik)) : '');
+  const [shd, setShd] = useState(
+    dokum?.shdSicaklik != null ? String(Math.round(dokum.shdSicaklik)) : '',
+  );
   const [dokumSicaklik, setDokumSicaklik] = useState(
-    dokum ? String(Math.round(dokum.dokumSicaklik)) : '',
+    dokum?.dokumSicaklik != null ? String(Math.round(dokum.dokumSicaklik)) : '',
   );
   const [lans, setLans] = useState<string | null>(dokum?.lansSkalDurum ?? null);
 
@@ -119,15 +132,19 @@ export default function DokumFormu({ dokum, sonDokumZamani, onGeri, onKaydedildi
     return new Date();
   }
 
-  const hepsiDolu = zamanlar.every((z) => z !== null);
-
-  /** Gun + saatleri, gece yarisi devrini hesaba katarak ISO metne cevirir. */
-  function isoUret(): string[] {
+  /**
+   * Gun + saatleri ISO metne cevirir. Girilmeyen saat null kalir: dokum hicbir
+   * bilgi girilmeden acilabildigi icin eksik alanlar sunucuya null gider.
+   * Gece yarisi devri yalnizca girilmis saatler arasinda hesaplanir.
+   */
+  function isoUret(): (string | null)[] {
     let gunEklentisi = 0;
     let oncekiDakika = -1;
 
     return zamanlar.map((z) => {
-      const d = z as Date;
+      if (z === null) return null;
+
+      const d = z;
       const dk = d.getHours() * 60 + d.getMinutes();
       if (oncekiDakika >= 0 && dk < oncekiDakika) gunEklentisi += 1;
       oncekiDakika = dk;
@@ -148,21 +165,27 @@ export default function DokumFormu({ dokum, sonDokumZamani, onGeri, onKaydedildi
   const shdSayi = Number(shd.replace(',', '.'));
   const dokumSayi = Number(dokumSicaklik.replace(',', '.'));
 
-  // Kaydet butonu bunlarin hepsi tamamlanmadan basilamaz (madde 2)
-  const gecerli =
-    hepsiDolu &&
-    !!shd && !Number.isNaN(shdSayi) && shdSayi > 0 &&
-    !!dokumSicaklik && !Number.isNaN(dokumSayi) && dokumSayi > 0 &&
-    !!operator;
+  const shdGecerli = !!shd.trim() && !Number.isNaN(shdSayi) && shdSayi > 0;
+  const dokumSicaklikGecerli =
+    !!dokumSicaklik.trim() && !Number.isNaN(dokumSayi) && dokumSayi > 0;
 
-  const sureler = hepsiDolu
-    ? (() => {
-        const iso = isoUret();
-        const fark = (a: string, b: string) =>
-          Math.round((new Date(b).getTime() - new Date(a).getTime()) / 60000);
-        return { sarj: fark(iso[0], iso[1]), ufleme: fark(iso[2], iso[3]), toplam: fark(iso[0], iso[4]) };
-      })()
-    : null;
+  /**
+   * Kaydet her zaman basilabilir: dokum vardiya basinda bos bir kayit olarak
+   * acilabiliyor, bilgiler sonradan doldurulyor. Yalnizca GIRILMIS ama gecersiz
+   * bir sicaklik (sifir, eksi, harf) kaydi engeller.
+   */
+  const gecerli =
+    (!shd.trim() || shdGecerli) && (!dokumSicaklik.trim() || dokumSicaklikGecerli);
+
+  /** Her sure kendi ikilisi girilmisse hesaplanir; eksikse null kalir. */
+  const sureler = (() => {
+    const iso = isoUret();
+    const fark = (a: string | null, b: string | null) =>
+      a && b ? Math.round((new Date(b).getTime() - new Date(a).getTime()) / 60000) : null;
+    return { sarj: fark(iso[0], iso[1]), ufleme: fark(iso[2], iso[3]), toplam: fark(iso[0], iso[4]) };
+  })();
+
+  const sureVar = sureler.sarj !== null || sureler.ufleme !== null || sureler.toplam !== null;
 
   function gunDegistir(adim: number) {
     const yeni = new Date(gun);
@@ -182,10 +205,10 @@ export default function DokumFormu({ dokum, sonDokumZamani, onGeri, onKaydedildi
       anaUflemeBaslama: iso[2],
       anaUflemeBitis: iso[3],
       dokumZamani: iso[4],
-      shdSicaklik: shdSayi,
-      dokumSicaklik: dokumSayi,
+      shdSicaklik: shdGecerli ? shdSayi : null,
+      dokumSicaklik: dokumSicaklikGecerli ? dokumSayi : null,
       lansSkalDurum: lans,
-      operatorId: (operator as api.Operator).operatorId,
+      operatorId: operator ? operator.operatorId : null,
     };
 
     setKaydediliyor(true);
@@ -354,7 +377,7 @@ export default function DokumFormu({ dokum, sonDokumZamani, onGeri, onKaydedildi
             ))}
           </View>
 
-          {sureler && (
+          {sureVar && (
             <View className="mt-3 flex-row gap-2">
               <SureRozeti etiket="Şarj" dakika={sureler.sarj} />
               <SureRozeti etiket="Üfleme" dakika={sureler.ufleme} />
@@ -636,7 +659,16 @@ export default function DokumFormu({ dokum, sonDokumZamani, onGeri, onKaydedildi
   );
 }
 
-function SureRozeti({ etiket, dakika, koyu }: { etiket: string; dakika: number; koyu?: boolean }) {
+function SureRozeti({
+  etiket,
+  dakika,
+  koyu,
+}: {
+  etiket: string;
+  /** Ikilisi eksikse null gelir, tire gosterilir. */
+  dakika: number | null;
+  koyu?: boolean;
+}) {
   return (
     <View
       className={
@@ -645,7 +677,7 @@ function SureRozeti({ etiket, dakika, koyu }: { etiket: string; dakika: number; 
     >
       <Text className={'text-[11px] ' + (koyu ? 'text-white/60' : 'text-neutral-500')}>{etiket}</Text>
       <Text className={'text-[14px] font-bold ' + (koyu ? 'text-white' : 'text-neutral-900')}>
-        {sureMetni(dakika)}
+        {dakika === null ? '—' : sureMetni(dakika)}
       </Text>
     </View>
   );

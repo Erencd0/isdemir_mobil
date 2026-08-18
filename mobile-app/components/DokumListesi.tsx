@@ -219,14 +219,16 @@ function DokumKarti({ dokum, onBas }: { dokum: api.Dokum; onBas: () => void }) {
         <View className="flex-row items-center">
           <Ionicons name="thermometer-outline" size={15} color="#9CA3AF" />
           <Text className="ml-1 text-[13px] font-semibold text-neutral-700">
-            {Math.round(dokum.shdSicaklik)}° → {Math.round(dokum.dokumSicaklik)}°
+            {dokum.shdSicaklik === null ? '—' : Math.round(dokum.shdSicaklik) + '°'}
+            {' → '}
+            {dokum.dokumSicaklik === null ? '—' : Math.round(dokum.dokumSicaklik) + '°'}
           </Text>
           <Text className="ml-3 text-[13px] text-neutral-400">{sureMetni(toplam)}</Text>
         </View>
 
         <View className="flex-row items-center">
           <Text className="mr-1 text-[13px] text-neutral-500" numberOfLines={1}>
-            {dokum.operatorAdSoyad}
+            {dokum.operatorAdSoyad ?? 'operatör seçilmemiş'}
           </Text>
           <Ionicons name="chevron-forward" size={15} color="#C4C4C8" />
         </View>

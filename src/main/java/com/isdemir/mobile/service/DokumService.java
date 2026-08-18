@@ -81,7 +81,9 @@ public class DokumService {
 
         zamanSirasiKontrol(istek);
 
-        if (dokumRepository.cakisanDokumVarMi(konverterNo, istek.hurdaSarjBaslama(), istek.dokumZamani())) {
+        if (zamanAraligiVar(istek)
+                && dokumRepository.cakisanDokumVarMi(
+                        konverterNo, istek.hurdaSarjBaslama(), istek.dokumZamani())) {
             throw new IsKuraliException(HttpStatus.CONFLICT, "DOKUM_CAKISMASI",
                     "Bu konverterde aynı zaman aralığında başka bir döküm var. "
                             + "Yeni döküm, önceki dökümün döküm zamanından önce başlayamaz");
@@ -125,8 +127,9 @@ public class DokumService {
 
         zamanSirasiKontrol(istek);
 
-        if (dokumRepository.cakisanBaskaDokumVarMi(
-                konverterNo, dokumId, istek.hurdaSarjBaslama(), istek.dokumZamani())) {
+        if (zamanAraligiVar(istek)
+                && dokumRepository.cakisanBaskaDokumVarMi(
+                        konverterNo, dokumId, istek.hurdaSarjBaslama(), istek.dokumZamani())) {
             throw new IsKuraliException(HttpStatus.CONFLICT, "DOKUM_CAKISMASI",
                     "Bu konverterde aynı zaman aralığında başka bir döküm var");
         }
@@ -182,7 +185,12 @@ public class DokumService {
         return konverterNo != null && dokumId.equals(dokumRepository.sonDokumId(konverterNo));
     }
 
+    /** Operator istege baglidir; secilmediyse null, secildiyse aktif olmak zorunda. */
     private Operator aktifOperator(Long operatorId) {
+        if (operatorId == null) {
+            return null;
+        }
+
         Operator operator = operatorRepository.findById(operatorId)
                 .orElseThrow(() -> new IsKuraliException(
                         HttpStatus.BAD_REQUEST, "OPERATOR_BULUNAMADI", "Operatör bulunamadı"));
@@ -198,6 +206,14 @@ public class DokumService {
      * Surecin adimlari birbirini takip eder; hicbir adim kendinden oncekinden
      * erken olamaz. Esitlige izin var - bir adim digerinin bittigi anda baslayabilir.
      */
+    /**
+     * Cakisma kontrolu icin dokumun bir zaman araligi olmali. Bos acilan
+     * kayitta baslangic ya da bitis yoksa kiyaslanacak aralik da yoktur.
+     */
+    private static boolean zamanAraligiVar(DokumOlusturIstek i) {
+        return i.hurdaSarjBaslama() != null && i.dokumZamani() != null;
+    }
+
     static void zamanSirasiKontrol(DokumOlusturIstek i) {
         siraKontrol(i.hurdaSarjBaslama(), i.hurdaSarjBitis(),
                 "Hurda şarj bitişi, başlangıcından önce olamaz");
@@ -210,6 +226,10 @@ public class DokumService {
     }
 
     private static void siraKontrol(LocalDateTime onceki, LocalDateTime sonraki, String mesaj) {
+        // Alanlar istege bagli: ikisinden biri girilmemisse karsilastiracak bir sey yok
+        if (onceki == null || sonraki == null) {
+            return;
+        }
         if (onceki.isAfter(sonraki)) {
             throw new IsKuraliException(HttpStatus.BAD_REQUEST, "ZAMAN_SIRASI", mesaj);
         }

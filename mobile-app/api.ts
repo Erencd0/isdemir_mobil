@@ -183,30 +183,38 @@ export type Dokum = {
   dokumId: number;
   dokumNo: number;
   konverterNo: number;
-  hurdaSarjBaslama: string;
-  hurdaSarjBitis: string;
-  anaUflemeBaslama: string;
-  anaUflemeBitis: string;
-  dokumZamani: string;
-  shdSicaklik: number;
-  dokumSicaklik: number;
+  /**
+   * Asagidaki alanlarin hepsi bos olabilir: dokum vardiya basinda bos bir
+   * kayit olarak acilip bilgileri sonradan doldurulabiliyor.
+   */
+  hurdaSarjBaslama: string | null;
+  hurdaSarjBitis: string | null;
+  anaUflemeBaslama: string | null;
+  anaUflemeBitis: string | null;
+  dokumZamani: string | null;
+  shdSicaklik: number | null;
+  dokumSicaklik: number | null;
   lansSkalDurum: string | null;
-  kullaniciId: number;
-  operatorId: number;
-  operatorAdSoyad: string;
+  kullaniciId: number | null;
+  operatorId: number | null;
+  operatorAdSoyad: string | null;
 };
 
-/** Yeni dokum kaydi - bes zamanin besi de zorunlu, kayit surec bitince girilir. */
+/**
+ * Yeni dokum kaydi. Hicbir alan zorunlu degil - operator bos bir kayit acip
+ * bilgileri surec ilerledikce guncelleyebilir. Gonderilen alanlar sunucuda
+ * dogrulanir (zaman sirasi, cakisma, pozitif sicaklik, aktif operator).
+ */
 export type YeniDokum = {
-  hurdaSarjBaslama: string;
-  hurdaSarjBitis: string;
-  anaUflemeBaslama: string;
-  anaUflemeBitis: string;
-  dokumZamani: string;
-  shdSicaklik: number;
-  dokumSicaklik: number;
+  hurdaSarjBaslama: string | null;
+  hurdaSarjBitis: string | null;
+  anaUflemeBaslama: string | null;
+  anaUflemeBitis: string | null;
+  dokumZamani: string | null;
+  shdSicaklik: number | null;
+  dokumSicaklik: number | null;
   lansSkalDurum: string | null;
-  operatorId: number;
+  operatorId: number | null;
 };
 
 /** aktif=false olan operatorler yeni dokumde secilemez, gecmis dokumlerde gorunur. */
